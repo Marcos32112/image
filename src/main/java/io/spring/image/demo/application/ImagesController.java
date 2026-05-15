@@ -2,23 +2,24 @@
 package io.spring.image.demo.application;
 
 import io.spring.image.demo.domain.entity.Image;
+import io.spring.image.demo.domain.enums.ImageExtension;
 import io.spring.image.demo.domain.service.ImageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/upload")
+@RequestMapping("/image")
 @Slf4j
 @RequiredArgsConstructor
 public class ImagesController {
@@ -41,7 +42,40 @@ public class ImagesController {
         //return ResponseEntity.ok().build();
         return ResponseEntity.created(imageUri).build();
     }
+    @GetMapping("{id}")
+    public ResponseEntity<byte[]> getImage(@PathVariable("id") String id){
+        var possibleImage = service.getById(id);
+        if(possibleImage.isEmpty()){
+            return ResponseEntity.notFound().build();
+        }
+        var image = possibleImage.get();
 
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(image.getExtension().getMediaType());
+        headers.setContentLength(image.getSize());
+        // inline; filename="image.PNG"
+        headers.setContentDispositionFormData("inline; filename=\"" + image.getFileName() +  "\"", image.getFileName());
+
+        return new ResponseEntity<>(image.getFile(), headers, HttpStatus.OK);
+    }
+
+
+    @GetMapping
+    public ResponseEntity<ImageDTO> search(
+            @RequestParam(value = "extension",required = false, defaultValue = "")String extension,
+            @RequestParam(value = "query", required = false)String query) throws InterruptedException{
+            Thread.sleep(3000L);
+            var result = service.search(ImageExtension.valueOf(extension), query);
+
+            var images = result.stream().map(image -> {
+                var url = buildImageURL(image);
+                return mapper.imageToDTO(image, url.toString());
+            }).collect(Collectors.toCollection());
+
+            return ResponseEntity.ok(images);
+
+
+    }
     //método que cria a url da imagem
     private URI buildImageURL(Image image) {
         String imagePath = "/"+image.getId();

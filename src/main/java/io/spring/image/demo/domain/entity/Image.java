@@ -38,8 +38,12 @@ public class Image {
     @Column
     private String tags;
 
-    @Column(name = "file", columnDefinition ="LONGLOB")
+    @Column(name = "file", columnDefinition ="LONGBLOB")
     @Lob
     private byte[] file;
+
+    public String getFileName(){
+        return getName().concat(".".concat(getExtension().name()));
+    }
 
 }
